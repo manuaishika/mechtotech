@@ -5,17 +5,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, X, Clock, Trophy } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
-import { Question } from "@/lib/supabase";
+import { Question, TOPICS } from "@/lib/supabase";
 
-const TOPICS = [
-  "All Topics",
-  "Thermodynamics",
-  "Fluid Mechanics",
-  "Materials Science",
-  "Manufacturing",
-  "Automobile Systems",
-  "EVs",
-  "Design & Mechanisms",
+const TOPIC_OPTIONS = ["All Topics", ...TOPICS];
+const COMPANIES = [
+  "All Companies",
+  "Hero MotoCorp",
+  "Tata Motors",
+  "Bajaj Auto",
+  "Siemens",
+  "ABB",
+  "Bosch",
+  "L&T",
+  "GE",
+  "Honeywell",
+  "Schlumberger",
+  "HAL",
+  "ISRO",
+  "Mahindra",
 ];
 
 const DIFFICULTIES = ["All Difficulties", "easy", "medium", "hard"];
@@ -23,18 +30,21 @@ const QUESTION_COUNTS = [10, 20, 30];
 
 type QuizState = "setup" | "quiz" | "results";
 type SelfRating = "correct" | "partial" | "missed" | null;
+const QUESTION_TIMER_SECONDS = 60;
 
 interface QuizAnswer {
   questionId: string;
   userAnswer?: number;
   selfRating?: SelfRating;
   isCorrect?: boolean;
+  topic: string;
 }
 
 export default function QuizPage() {
   const [quizState, setQuizState] = useState<QuizState>("setup");
   const [topic, setTopic] = useState("All Topics");
   const [difficulty, setDifficulty] = useState("All Difficulties");
+  const [company, setCompany] = useState("All Companies");
   const [questionCount, setQuestionCount] = useState(10);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -42,7 +52,9 @@ export default function QuizPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [timer, setTimer] = useState(0);
+  const [questionTimer, setQuestionTimer] = useState(QUESTION_TIMER_SECONDS);
   const [timerEnabled, setTimerEnabled] = useState(true);
+  const [reviewMissedOnly, setReviewMissedOnly] = useState(false);
 
   const currentQuestion = questions[currentQuestionIndex];
 
@@ -51,6 +63,13 @@ export default function QuizPage() {
     if (quizState === "quiz" && timerEnabled) {
       const interval = setInterval(() => {
         setTimer((prev) => prev + 1);
+        setQuestionTimer((prev) => {
+          if (prev <= 1) {
+            setShowAnswer(true);
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
       return () => clearInterval(interval);
     }
@@ -61,6 +80,10 @@ export default function QuizPage() {
     if (quizState !== "quiz" || !currentQuestion) return;
 
     const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "n" && showAnswer) {
+        nextQuestion();
+      }
+
       if (currentQuestion.question_type === "mcq" && !showAnswer) {
         const key = parseInt(e.key);
         if (key >= 1 && key <= 4) {
@@ -81,16 +104,23 @@ export default function QuizPage() {
   const startQuiz = async () => {
     const topicParam = topic === "All Topics" ? "all" : topic;
     const difficultyParam = difficulty === "All Difficulties" ? "all" : difficulty;
+    const companyParam = company === "All Companies" ? "all" : company;
 
     const response = await fetch(
-      `/api/questions/quiz?topic=${encodeURIComponent(topicParam)}&difficulty=${difficultyParam}&count=${questionCount}`
+      `/api/questions/quiz?topic=${encodeURIComponent(topicParam)}&difficulty=${difficultyParam}&company=${encodeURIComponent(companyParam)}&count=${questionCount}`
     );
 
     if (response.ok) {
       const data = await response.json();
       setQuestions(data);
+      setCurrentQuestionIndex(0);
+      setAnswers([]);
+      setSelectedOption(null);
+      setShowAnswer(false);
       setQuizState("quiz");
       setTimer(0);
+      setQuestionTimer(QUESTION_TIMER_SECONDS);
+      setReviewMissedOnly(false);
     }
   };
 
@@ -105,6 +135,7 @@ export default function QuizPage() {
       questionId: currentQuestion.id,
       userAnswer: optionIndex,
       isCorrect,
+      topic: currentQuestion.topic,
     };
 
     setAnswers([...answers, newAnswer]);
@@ -114,6 +145,7 @@ export default function QuizPage() {
     const newAnswer: QuizAnswer = {
       questionId: currentQuestion.id,
       selfRating: rating,
+      topic: currentQuestion.topic,
     };
 
     setAnswers([...answers, newAnswer]);
@@ -125,6 +157,7 @@ export default function QuizPage() {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedOption(null);
       setShowAnswer(false);
+      setQuestionTimer(QUESTION_TIMER_SECONDS);
     } else {
       finishQuiz();
     }
@@ -161,6 +194,7 @@ export default function QuizPage() {
       body: JSON.stringify({
         topic: topic === "All Topics" ? "Mixed" : topic,
         difficulty: difficulty === "All Difficulties" ? "Mixed" : difficulty,
+        company: company === "All Companies" ? null : company,
         total_questions: questions.length,
         score: Math.round(score),
         time_taken: timer,
@@ -187,6 +221,31 @@ export default function QuizPage() {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const topicBreakdown = answers.reduce<Record<string, { score: number; total: number }>>(
+    (acc, answer) => {
+      const key = answer.topic;
+      if (!acc[key]) acc[key] = { score: 0, total: 0 };
+      acc[key].total += 1;
+      if (answer.isCorrect || answer.selfRating === "correct") {
+        acc[key].score += 1;
+      } else if (answer.selfRating === "partial") {
+        acc[key].score += 0.5;
+      }
+      return acc;
+    },
+    {}
+  );
+
+  const missedQuestionIds = new Set(
+    answers
+      .filter((answer) => !(answer.isCorrect || answer.selfRating === "correct"))
+      .map((answer) => answer.questionId)
+  );
+
+  const resultQuestions = reviewMissedOnly
+    ? questions.filter((q) => missedQuestionIds.has(q.id))
+    : [];
 
   if (quizState === "setup") {
     return (
@@ -215,13 +274,32 @@ export default function QuizPage() {
                   Topic
                 </label>
                 <select
+                  id="quiz-topic"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2 text-zinc-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
                 >
-                  {TOPICS.map((t) => (
+                  {TOPIC_OPTIONS.map((t) => (
                     <option key={t} value={t}>
                       {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Company (optional)
+                </label>
+                <select
+                  id="quiz-company"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2 text-zinc-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                >
+                  {COMPANIES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
                     </option>
                   ))}
                 </select>
@@ -232,6 +310,7 @@ export default function QuizPage() {
                   Difficulty
                 </label>
                 <select
+                  id="quiz-difficulty"
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value)}
                   className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2 text-zinc-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
@@ -306,7 +385,7 @@ export default function QuizPage() {
               {timerEnabled && (
                 <div className="flex items-center gap-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">
                   <Clock className="h-4 w-4" />
-                  {formatTime(timer)}
+                  {formatTime(timer)} · Q: {formatTime(questionTimer)}
                 </div>
               )}
             </div>
@@ -356,6 +435,7 @@ export default function QuizPage() {
                   {currentQuestion.options?.map((option, index) => (
                     <button
                       key={index}
+                      type="button"
                       onClick={() => handleMCQAnswer(index)}
                       disabled={showAnswer}
                       className={`w-full rounded-lg border p-4 text-left transition-all ${
@@ -393,6 +473,7 @@ export default function QuizPage() {
                         {currentQuestion.answer}
                       </p>
                       <button
+                        type="button"
                         onClick={nextQuestion}
                         className="mt-4 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700"
                       >
@@ -405,6 +486,7 @@ export default function QuizPage() {
                 <div>
                   {!showAnswer ? (
                     <button
+                      type="button"
                       onClick={() => setShowAnswer(true)}
                       className="w-full rounded-lg border border-blue-600 bg-blue-50 px-6 py-3 font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
                     >
@@ -427,18 +509,21 @@ export default function QuizPage() {
                         </p>
                         <div className="flex gap-2">
                           <button
+                            type="button"
                             onClick={() => handleSelfRating("correct")}
                             className="flex-1 rounded-lg border border-green-500 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-300"
                           >
                             ✅ Got it
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleSelfRating("partial")}
                             className="flex-1 rounded-lg border border-yellow-500 bg-yellow-50 px-4 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-300"
                           >
                             🟡 Partially
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleSelfRating("missed")}
                             className="flex-1 rounded-lg border border-red-500 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300"
                           >
@@ -479,7 +564,7 @@ export default function QuizPage() {
               Quiz Complete!
             </h1>
             <p className="mb-8 text-zinc-600 dark:text-zinc-400">
-              Great job! Here's how you did
+              Great job! Here is how you did
             </p>
 
             <div className="mb-8 grid gap-4 sm:grid-cols-3">
@@ -503,13 +588,64 @@ export default function QuizPage() {
               </div>
             </div>
 
+            <div className="mb-8 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-left dark:border-zinc-800 dark:bg-zinc-800">
+              <p className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Topic breakdown</p>
+              <div className="space-y-2">
+                {Object.entries(topicBreakdown).map(([topicName, data]) => (
+                  <div key={topicName} className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-700 dark:text-zinc-300">{topicName}</span>
+                    <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                      {data.score.toFixed(1)}/{data.total}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {reviewMissedOnly ? (
+              <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-4 text-left dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Missed questions</p>
+                  <button
+                    type="button"
+                    onClick={() => setReviewMissedOnly(false)}
+                    className="text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    Hide
+                  </button>
+                </div>
+                {resultQuestions.length === 0 ? (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">No missed questions in this quiz.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {resultQuestions.map((q) => (
+                      <div key={q.id} className="rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{q.question}</p>
+                        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{q.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
+                type="button"
+                onClick={() => setReviewMissedOnly((prev) => !prev)}
+                className="flex-1 rounded-lg border border-zinc-200 px-6 py-3 font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-800"
+              >
+                Review Missed Questions
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setQuizState("setup");
                   setCurrentQuestionIndex(0);
                   setAnswers([]);
                   setTimer(0);
+                  setQuestionTimer(QUESTION_TIMER_SECONDS);
+                  setReviewMissedOnly(false);
                 }}
                 className="flex-1 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
               >

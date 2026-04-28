@@ -1,0 +1,16 @@
+export const COMPANY_LOGO_STRIP = [
+  "Hero",
+  "Tata",
+  "Siemens",
+  "ABB",
+  "Bosch",
+  "L&T",
+  "GE",
+  "Honeywell",
+  "Schlumberger",
+  "HAL",
+  "ISRO",
+  "Bajaj",
+  "Mahindra",
+  "Emerson",
+];

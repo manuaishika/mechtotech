@@ -17,6 +17,7 @@ export async function POST(request: Request) {
           topic: body.topic,
           difficulty: body.difficulty,
           company: body.company || null,
+          industry_sector: body.industry_sector || null,
           is_real_interview: body.is_real_interview || false,
         },
       ])

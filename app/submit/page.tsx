@@ -9,10 +9,12 @@ const TOPICS = [
   "Thermodynamics",
   "Fluid Mechanics",
   "Materials Science",
-  "Manufacturing",
+  "Manufacturing & Processes",
   "Automobile Systems",
-  "EVs",
+  "EVs & Electrification",
   "Design & Mechanisms",
+  "Industrial Automation",
+  "GD&T & Engineering Drawing",
 ];
 
 const DIFFICULTIES = ["easy", "medium", "hard"];
@@ -26,6 +28,7 @@ export default function SubmitPage() {
   const [topic, setTopic] = useState(TOPICS[0]);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [company, setCompany] = useState("");
+  const [industrySector, setIndustrySector] = useState("automobile");
   const [isRealInterview, setIsRealInterview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -49,6 +52,7 @@ export default function SubmitPage() {
       topic,
       difficulty,
       company: company || null,
+      industry_sector: industrySector,
       is_real_interview: isRealInterview,
     };
 
@@ -294,6 +298,23 @@ export default function SubmitPage() {
                   placeholder="e.g., Tesla, Tata Motors, BHEL"
                   className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2 text-zinc-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
                 />
+              </div>
+
+              <div className="mb-6">
+                <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Industry Sector
+                </label>
+                <select
+                  value={industrySector}
+                  onChange={(e) => setIndustrySector(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2 text-zinc-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                >
+                  <option value="automobile">automobile</option>
+                  <option value="industrial">industrial</option>
+                  <option value="oil_gas">oil_gas</option>
+                  <option value="aerospace">aerospace</option>
+                  <option value="startup">startup</option>
+                </select>
               </div>
 
               {/* Real Interview Checkbox */}

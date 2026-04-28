@@ -10,10 +10,12 @@ const topics = [
   "Thermodynamics",
   "Fluid Mechanics",
   "Materials Science",
-  "Manufacturing",
+  "Manufacturing & Processes",
   "Automobile Systems",
-  "EVs",
+  "EVs & Electrification",
   "Design & Mechanisms",
+  "Industrial Automation",
+  "GD&T & Engineering Drawing",
 ];
 
 export default function ConceptsPage() {
@@ -125,6 +127,9 @@ export default function ConceptsPage() {
                     <span className="font-semibold">Real-world example:</span> {concept.example}
                   </p>
                 </div>
+                <p className="mt-3 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Most relevant at: {concept.companyCallout}
+                </p>
               </motion.div>
             ))}
           </div>

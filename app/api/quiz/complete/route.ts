@@ -12,6 +12,7 @@ export async function POST(request: Request) {
           session_id: body.session_id || `anon-${Date.now()}`,
           topic: body.topic,
           difficulty: body.difficulty,
+          company: body.company || null,
           total_questions: body.total_questions,
           score: body.score,
           time_taken: body.time_taken,

@@ -1,43 +1,56 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Search, ChevronDown, Check } from "lucide-react";
 import Link from "next/link";
-import { Question } from "@/lib/supabase";
+import { INDUSTRY_SECTORS, Question, TOPICS } from "@/lib/supabase";
 
-const TOPICS = [
-  "All Topics",
-  "Thermodynamics",
-  "Fluid Mechanics",
-  "Materials Science",
-  "Manufacturing",
-  "Automobile Systems",
-  "EVs",
-  "Design & Mechanisms",
-];
+const TOPIC_OPTIONS = ["All Topics", ...TOPICS];
 
 const DIFFICULTIES = ["All", "easy", "medium", "hard"];
 const QUESTION_TYPES = ["All Types", "mcq", "conceptual"];
+const COMPANIES = [
+  "All Companies",
+  "Hero MotoCorp",
+  "Tata Motors",
+  "Bajaj Auto",
+  "Siemens",
+  "ABB",
+  "Bosch",
+  "L&T",
+  "GE",
+  "Honeywell",
+  "Schlumberger",
+  "HAL",
+  "ISRO",
+  "Mahindra",
+];
 
 export default function QuestionsPage() {
-  const searchParams = useSearchParams();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
-  const [reviewedQuestions, setReviewedQuestions] = useState<Set<string>>(new Set());
+  const [reviewedQuestions, setReviewedQuestions] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") {
+      return new Set();
+    }
+    const reviewed = window.localStorage.getItem("reviewedQuestions");
+    return reviewed ? new Set(JSON.parse(reviewed)) : new Set();
+  });
 
-  const [topicFilter, setTopicFilter] = useState(searchParams.get("topic") || "All Topics");
+  const [topicFilter, setTopicFilter] = useState("All Topics");
   const [difficultyFilter, setDifficultyFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All Types");
+  const [companyFilter, setCompanyFilter] = useState("All Companies");
+  const [sectorFilter, setSectorFilter] = useState("All Sectors");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Load reviewed questions from localStorage
   useEffect(() => {
-    const reviewed = localStorage.getItem("reviewedQuestions");
-    if (reviewed) {
-      setReviewedQuestions(new Set(JSON.parse(reviewed)));
+    const params = new URLSearchParams(window.location.search);
+    const initialTopic = params.get("topic");
+    if (initialTopic) {
+      setTopicFilter(initialTopic);
     }
   }, []);
 
@@ -56,6 +69,12 @@ export default function QuestionsPage() {
       if (typeFilter !== "All Types") {
         params.append("type", typeFilter);
       }
+      if (companyFilter !== "All Companies") {
+        params.append("company", companyFilter);
+      }
+      if (sectorFilter !== "All Sectors") {
+        params.append("sector", sectorFilter);
+      }
 
       const response = await fetch(`/api/questions?${params.toString()}`);
       if (response.ok) {
@@ -66,7 +85,7 @@ export default function QuestionsPage() {
     }
 
     fetchQuestions();
-  }, [topicFilter, difficultyFilter, typeFilter]);
+  }, [topicFilter, difficultyFilter, typeFilter, companyFilter, sectorFilter]);
 
   const toggleQuestion = (id: string) => {
     const newExpanded = new Set(expandedQuestions);
@@ -121,12 +140,16 @@ export default function QuestionsPage() {
 
               {/* Search */}
               <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <label
+                  htmlFor="question-search"
+                  className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
                   Search
                 </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                   <input
+                    id="question-search"
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -138,15 +161,19 @@ export default function QuestionsPage() {
 
               {/* Topic Filter */}
               <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <label
+                  htmlFor="topic-filter"
+                  className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
                   Topic
                 </label>
                 <select
+                  id="topic-filter"
                   value={topicFilter}
                   onChange={(e) => setTopicFilter(e.target.value)}
                   className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
                 >
-                  {TOPICS.map((topic) => (
+                  {TOPIC_OPTIONS.map((topic) => (
                     <option key={topic} value={topic}>
                       {topic}
                     </option>
@@ -156,10 +183,14 @@ export default function QuestionsPage() {
 
               {/* Difficulty Filter */}
               <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <label
+                  htmlFor="difficulty-filter"
+                  className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
                   Difficulty
                 </label>
                 <select
+                  id="difficulty-filter"
                   value={difficultyFilter}
                   onChange={(e) => setDifficultyFilter(e.target.value)}
                   className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
@@ -174,10 +205,14 @@ export default function QuestionsPage() {
 
               {/* Type Filter */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <label
+                  htmlFor="type-filter"
+                  className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
                   Question Type
                 </label>
                 <select
+                  id="type-filter"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
                   className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
@@ -185,6 +220,49 @@ export default function QuestionsPage() {
                   {QUESTION_TYPES.map((type) => (
                     <option key={type} value={type}>
                       {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-4">
+                <label
+                  htmlFor="company-filter"
+                  className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
+                  Company
+                </label>
+                <select
+                  id="company-filter"
+                  value={companyFilter}
+                  onChange={(e) => setCompanyFilter(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                >
+                  {COMPANIES.map((company) => (
+                    <option key={company} value={company}>
+                      {company}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-4">
+                <label
+                  htmlFor="sector-filter"
+                  className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                >
+                  Industry Sector
+                </label>
+                <select
+                  id="sector-filter"
+                  value={sectorFilter}
+                  onChange={(e) => setSectorFilter(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50"
+                >
+                  <option value="All Sectors">All Sectors</option>
+                  {INDUSTRY_SECTORS.map((sector) => (
+                    <option key={sector} value={sector}>
+                      {sector}
                     </option>
                   ))}
                 </select>
@@ -252,10 +330,21 @@ export default function QuestionsPage() {
                               {question.company}
                             </span>
                           )}
+                          {question.industry_sector && (
+                            <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-900 dark:text-orange-300">
+                              {question.industry_sector}
+                            </span>
+                          )}
+                          {question.is_real_interview && (
+                            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                              Real interview
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-start justify-between gap-4">
                           <button
+                            type="button"
                             onClick={() => toggleQuestion(question.id)}
                             className="flex-1 text-left"
                           >
@@ -265,6 +354,7 @@ export default function QuestionsPage() {
                           </button>
                           <div className="flex items-center gap-2">
                             <button
+                              type="button"
                               onClick={() => toggleReviewed(question.id)}
                               className={`rounded-lg border p-2 transition-colors ${
                                 isReviewed
@@ -276,7 +366,9 @@ export default function QuestionsPage() {
                               <Check className="h-4 w-4" />
                             </button>
                             <button
+                              type="button"
                               onClick={() => toggleQuestion(question.id)}
+                              aria-label={isExpanded ? "Collapse question" : "Expand question"}
                               className="rounded-lg border border-zinc-200 p-2 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800"
                             >
                               <ChevronDown

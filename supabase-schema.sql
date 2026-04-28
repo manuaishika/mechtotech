@@ -1,3 +1,154 @@
+create extension if not exists pgcrypto;
+
+create table if not exists questions (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  answer text not null,
+  question_type text check (question_type in ('mcq', 'conceptual')),
+  options jsonb,
+  correct_option int,
+  topic text not null,
+  difficulty text check (difficulty in ('easy', 'medium', 'hard')),
+  company text,
+  industry_sector text,
+  is_real_interview bool default false,
+  is_approved bool default true,
+  created_at timestamp default now()
+);
+
+create table if not exists pending_questions (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  answer text not null,
+  question_type text,
+  options jsonb,
+  correct_option int,
+  topic text,
+  difficulty text,
+  company text,
+  industry_sector text,
+  is_real_interview bool default false,
+  created_at timestamp default now()
+);
+
+create table if not exists quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  session_id text,
+  topic text,
+  difficulty text,
+  company text,
+  total_questions int,
+  score int,
+  time_taken int,
+  created_at timestamp default now()
+);
+
+create table if not exists companies (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text unique not null,
+  sector text,
+  description text,
+  focus_topics jsonb,
+  difficulty_profile text
+);
+
+alter table questions enable row level security;
+alter table pending_questions enable row level security;
+alter table quiz_attempts enable row level security;
+alter table companies enable row level security;
+
+drop policy if exists "public read questions" on questions;
+drop policy if exists "public insert pending_questions" on pending_questions;
+drop policy if exists "public insert quiz_attempts" on quiz_attempts;
+drop policy if exists "public read quiz_attempts" on quiz_attempts;
+drop policy if exists "public read companies" on companies;
+
+create policy "public read questions" on questions for select using (is_approved = true);
+create policy "public insert pending_questions" on pending_questions for insert with check (true);
+create policy "public insert quiz_attempts" on quiz_attempts for insert with check (true);
+create policy "public read quiz_attempts" on quiz_attempts for select using (true);
+create policy "public read companies" on companies for select using (true);
+
+insert into companies (name, slug, sector, description, focus_topics, difficulty_profile) values
+('Hero MotoCorp', 'hero-motocorp', 'automobile', 'Manufacturing and two-wheeler systems roles.', '["Automobile Systems","Manufacturing & Processes","EVs & Electrification"]', 'Medium: IC engines + practical shop-floor understanding'),
+('Tata Motors', 'tata-motors', 'automobile', 'Vehicle design, manufacturing, and EV systems.', '["Automobile Systems","Materials Science","EVs & Electrification"]', 'Medium-hard: mixes fundamentals with application'),
+('Bajaj Auto', 'bajaj-auto', 'automobile', 'Powertrain, vehicle dynamics, and production roles.', '["Automobile Systems","Manufacturing & Processes","Design & Mechanisms"]', 'Medium: practical and product-focused'),
+('Siemens', 'siemens', 'industrial', 'Industrial engineering and automation heavy roles.', '["Thermodynamics","Industrial Automation","GD&T & Engineering Drawing"]', 'Hard: strong theory plus controls and plant context'),
+('ABB', 'abb', 'industrial', 'Automation, drives, and industrial electrification.', '["Industrial Automation","EVs & Electrification","GD&T & Engineering Drawing"]', 'Hard: controls and industrial systems depth'),
+('Bosch', 'bosch', 'industrial', 'Manufacturing, quality, and component engineering.', '["Manufacturing & Processes","Materials Science","GD&T & Engineering Drawing"]', 'Hard: detail-oriented technical rounds'),
+('L&T', 'l-and-t', 'industrial', 'Heavy engineering, EPC, and project execution roles.', '["Fluid Mechanics","Manufacturing & Processes","Design & Mechanisms"]', 'Hard: fundamentals plus real-world constraints'),
+('GE', 'ge', 'industrial', 'Energy and rotating machinery related hiring.', '["Thermodynamics","Fluid Mechanics","Materials Science"]', 'Hard: numerical and conceptual rigor'),
+('Honeywell', 'honeywell', 'industrial', 'Process industries and automation-linked roles.', '["Industrial Automation","Thermodynamics","EVs & Electrification"]', 'Hard: controls + fundamentals'),
+('Schlumberger', 'schlumberger', 'oil_gas', 'Field and design roles in drilling and fluid systems.', '["Fluid Mechanics","Materials Science","Thermodynamics"]', 'Hard: fluid mechanics and applied engineering'),
+('HAL', 'hal', 'aerospace', 'Aerospace manufacturing and propulsion pathways.', '["Thermodynamics","Materials Science","Design & Mechanisms"]', 'Hard: high expectation on core mechanics'),
+('ISRO', 'isro', 'aerospace', 'Space systems and high-rigor engineering roles.', '["Thermodynamics","Fluid Mechanics","Materials Science"]', 'Hard: deep fundamentals and problem solving'),
+('Mahindra', 'mahindra', 'automobile', 'Automotive systems and EV platform roles.', '["Automobile Systems","EVs & Electrification","Manufacturing & Processes"]', 'Medium-hard: mixed conceptual and practical')
+on conflict (slug) do nothing;
+
+-- MCQ seed (core requested set)
+insert into questions (question, answer, question_type, options, correct_option, topic, difficulty, company, industry_sector, is_real_interview) values
+('Otto cycle efficiency is:', 'For air-standard Otto cycle, eta = 1 - 1/(r^(gamma-1)).', 'mcq', '["1 - 1/(r^(gamma-1))","1 - Tc/Th","r^(gamma-1)","1 - 1/r"]', 0, 'Thermodynamics', 'medium', 'Siemens', 'industrial', true),
+('Diesel cycle generally gains efficiency primarily due to:', 'Higher compression ratio is the major reason in practical comparison.', 'mcq', '["Higher compression ratio","Lower compression ratio","No heat rejection","No friction"]', 0, 'Thermodynamics', 'medium', 'GE', 'industrial', true),
+('Rankine cycle is mainly used in:', 'Rankine is the backbone of steam power plants.', 'mcq', '["Steam power plants","SI engines","Air compressors","Gas turbines only"]', 0, 'Thermodynamics', 'easy', 'GE', 'industrial', true),
+('Carnot efficiency is:', 'eta = 1 - Tc/Th in absolute temperature.', 'mcq', '["1 - Tc/Th","1 - Th/Tc","Th/Tc","Tc/Th"]', 0, 'Thermodynamics', 'easy', 'ISRO', 'aerospace', true),
+('Intercooling in multistage compressors is used to:', 'It reduces compressor work by cooling air between stages.', 'mcq', '["Reduce work input","Increase pressure ratio alone","Increase friction","Reduce volumetric efficiency"]', 0, 'Thermodynamics', 'medium', 'Siemens', 'industrial', true),
+('Compressor power requirement at high altitude tends to:', 'Power per useful mass flow increases due to lower inlet density.', 'mcq', '["Increase for same mass throughput","Drop to zero","Stay always constant","Become independent of density"]', 0, 'Thermodynamics', 'hard', 'HAL', 'aerospace', true),
+
+('Bernoulli equation relates:', 'Pressure, velocity head and elevation head along a streamline.', 'mcq', '["Pressure, velocity, elevation","Stress and strain","Heat and work","Torque and speed"]', 0, 'Fluid Mechanics', 'easy', 'Schlumberger', 'oil_gas', true),
+('Cavitation starts when local pressure:', 'Cavitation starts when local pressure falls below vapor pressure.', 'mcq', '["Falls below vapor pressure","Exceeds atmospheric pressure","Equals stagnation pressure","Matches hydrostatic head"]', 0, 'Fluid Mechanics', 'medium', 'ONGC', 'oil_gas', true),
+('A Newtonian fluid has:', 'Linear relation between shear stress and shear rate.', 'mcq', '["Linear tau-gamma relation","Constant density only","Zero viscosity","Nonlinear plastic yield"]', 0, 'Fluid Mechanics', 'easy', 'L&T', 'industrial', true),
+('Reynolds number indicates:', 'It signals laminar versus turbulent trend of flow.', 'mcq', '["Flow regime tendency","Only pressure","Only viscosity","Only velocity"]', 0, 'Fluid Mechanics', 'easy', 'Schlumberger', 'oil_gas', true),
+('Pascal law is the basis of:', 'Hydraulic press and hydraulic brake systems.', 'mcq', '["Hydraulic systems","Gas turbines","Heat pumps","Boilers"]', 0, 'Fluid Mechanics', 'easy', 'Siemens', 'industrial', false),
+
+('Forged component is usually stronger than cast due to:', 'Grain flow refinement and lower internal defects.', 'mcq', '["Better grain flow","Lower melting point","Higher porosity","No heat treatment"]', 0, 'Materials Science', 'easy', 'Bosch', 'industrial', true),
+('Hardness is best described as:', 'Resistance to indentation and scratching.', 'mcq', '["Indentation resistance","Energy absorption","Elastic modulus","Damping ratio"]', 0, 'Materials Science', 'easy', 'Tata Motors', 'automobile', true),
+('Toughness indicates:', 'Ability to absorb energy before fracture.', 'mcq', '["Energy absorption before fracture","Surface smoothness","Corrosion rate","Thermal conductivity"]', 0, 'Materials Science', 'easy', 'HAL', 'aerospace', true),
+('Annealing is typically used to:', 'Relieve stresses and improve ductility.', 'mcq', '["Soften and stress-relieve","Max harden instantly","Add alloying elements","Increase brittleness"]', 0, 'Materials Science', 'medium', 'Siemens', 'industrial', true),
+('Quenching is primarily used to:', 'Increase hardness via rapid cooling.', 'mcq', '["Increase hardness","Reduce carbon content","Increase ductility always","Remove oxides only"]', 0, 'Materials Science', 'medium', 'Bosch', 'industrial', true),
+('Endurance limit refers to:', 'Stress amplitude for very high cycle fatigue survival.', 'mcq', '["Fatigue limit at high cycles","Ultimate tensile strength","Yield point","Fracture toughness"]', 0, 'Materials Science', 'medium', 'Tata Motors', 'automobile', true),
+
+('Draft allowance in casting is provided for:', 'Easy removal of pattern from mold.', 'mcq', '["Pattern withdrawal","Shrinkage compensation","Surface finish only","Machinability only"]', 0, 'Manufacturing & Processes', 'easy', 'Bosch', 'industrial', true),
+('Continuous chip formation is promoted by:', 'Ductile material, sharp tool, high speed.', 'mcq', '["Ductile material + high speed","Brittle material only","Low speed + dull tool","Interrupted cut only"]', 0, 'Manufacturing & Processes', 'medium', 'Siemens', 'industrial', true),
+('Fixture is mainly used to:', 'Hold and locate workpiece securely.', 'mcq', '["Hold and locate work","Guide tool path directly","Measure hardness","Cool the tool"]', 0, 'Manufacturing & Processes', 'easy', 'L&T', 'industrial', true),
+('Gantt chart is used for:', 'Planning and scheduling project activities.', 'mcq', '["Scheduling tasks","GD&T control","Heat treatment","Material testing"]', 0, 'Manufacturing & Processes', 'easy', 'Tata Motors', 'automobile', true),
+('In milling machine, multi-tooth cutter is generally mounted on:', 'Spindle/arbor setup depending on machine architecture.', 'mcq', '["Spindle/arbor","Tailstock","Crosshead only","Chuck jaw"]', 0, 'Manufacturing & Processes', 'medium', 'Bosch', 'industrial', true),
+
+('Correct four-stroke sequence is:', 'Intake, compression, power, exhaust.', 'mcq', '["Intake-Compression-Power-Exhaust","Compression-Intake-Exhaust-Power","Power-Compression-Intake-Exhaust","Exhaust-Intake-Power-Compression"]', 0, 'Automobile Systems', 'easy', 'Hero MotoCorp', 'automobile', true),
+('Turbocharger differs from supercharger because turbo is driven by:', 'Turbo uses exhaust gas energy.', 'mcq', '["Exhaust gas","Crankshaft belt","Battery motor only","Flywheel only"]', 0, 'Automobile Systems', 'easy', 'Tata Motors', 'automobile', true),
+('Differential in vehicles primarily:', 'Allows left and right wheel speed difference in turns.', 'mcq', '["Allows wheel speed difference","Increases brake force","Raises compression ratio","Acts as muffler"]', 0, 'Automobile Systems', 'easy', 'Bajaj Auto', 'automobile', true),
+('Disc brakes are preferred for performance because:', 'They dissipate heat faster and resist fade better.', 'mcq', '["Better cooling","Lower cost","No maintenance","No hydraulic need"]', 0, 'Automobile Systems', 'medium', 'Mahindra', 'automobile', true),
+('Main function of clutch is to:', 'Engage/disengage engine power smoothly to transmission.', 'mcq', '["Power engagement control","Increase octane","Cool engine","Raise compression"]', 0, 'Automobile Systems', 'easy', 'Hero MotoCorp', 'automobile', true),
+
+('BMS in EV stands for and does:', 'Battery Management System monitors/protects cells.', 'mcq', '["Monitors and protects cells","Only charging socket lock","Only speed control","Only traction control"]', 0, 'EVs & Electrification', 'easy', 'Tata Motors', 'automobile', true),
+('Regenerative braking works by:', 'Using motor as generator during deceleration.', 'mcq', '["Motor as generator","Extra brake pad friction","Hydraulic amplification","Gearbox overdrive"]', 0, 'EVs & Electrification', 'easy', 'Mahindra', 'automobile', true),
+('Traction inverter function is:', 'Convert DC battery power into controlled AC for motor.', 'mcq', '["DC to controlled AC","AC to steam","DC to hydraulic pressure","AC to DC brake fluid"]', 0, 'EVs & Electrification', 'medium', 'ABB', 'industrial', true),
+('Compared to many NMC packs, LiFePO4 generally offers:', 'Better thermal stability and cycle life with lower energy density.', 'mcq', '["Higher stability lower energy density","Higher energy density always","No thermal concerns","No balancing needed"]', 0, 'EVs & Electrification', 'medium', 'Siemens', 'industrial', true),
+('V2G means:', 'Vehicle can send power back to grid in supported architecture.', 'mcq', '["Vehicle to grid bidirectional flow","Vehicle to garage","Voltage to ground shorting","Variable two gear"]', 0, 'EVs & Electrification', 'hard', 'ABB', 'industrial', true),
+
+('Third-angle projection places top view:', 'Above the front view in third-angle convention.', 'mcq', '["Above front view","Below front view always","Left only","Inside section view"]', 0, 'GD&T & Engineering Drawing', 'easy', 'Siemens', 'industrial', true),
+('Dotted lines in engineering drawings indicate:', 'Hidden edges/features not directly visible in current view.', 'mcq', '["Hidden features","Centerline only","Break lines","Cutting plane"]', 0, 'GD&T & Engineering Drawing', 'easy', 'Bosch', 'industrial', true),
+('Title block commonly includes:', 'Drawing number, revision, material and scale.', 'mcq', '["ID, revision, material, scale","Only title","Only tolerance","Only company logo"]', 0, 'GD&T & Engineering Drawing', 'easy', 'ABB', 'industrial', true),
+('GD&T primarily ensures:', 'Functional geometric control for manufacturing and inspection.', 'mcq', '["Functional geometric control","Only surface color","Only weight","Only cost control"]', 0, 'GD&T & Engineering Drawing', 'medium', 'L&T', 'industrial', true);
+
+-- Conceptual seed set (requested prompts)
+insert into questions (question, answer, question_type, topic, difficulty, company, industry_sector, is_real_interview) values
+('Why is aluminium used in aeroplanes?', 'High strength-to-weight ratio, good corrosion resistance, and manufacturability make aluminium alloys a strong aerospace default.', 'conceptual', 'Materials Science', 'medium', 'HAL', 'aerospace', true),
+('Why is carbon fibre used in car bodies?', 'It provides high stiffness and strength at very low mass, improving acceleration, handling and efficiency in performance designs.', 'conceptual', 'Materials Science', 'medium', 'Tata Motors', 'automobile', true),
+('How does a differential work intuitively?', 'It splits torque while allowing wheel speed difference during turns via spider and side gears.', 'conceptual', 'Automobile Systems', 'medium', 'Hero MotoCorp', 'automobile', true),
+('What linkages/mechanisms do you see in daily life?', 'Examples include slider-crank in engines, four-bar in wipers, cam-follower in valve trains and toggle clamps in fixtures.', 'conceptual', 'Design & Mechanisms', 'easy', 'L&T', 'industrial', true),
+('Why are wheel hubs lightweight?', 'Lower unsprung mass improves ride response, handling and rotational inertia performance.', 'conceptual', 'Automobile Systems', 'easy', 'Bajaj Auto', 'automobile', true),
+('How does 3D printing help prototyping?', 'It rapidly converts CAD into test parts, speeding design iteration and reducing tooling dependency.', 'conceptual', 'Manufacturing & Processes', 'easy', 'Siemens', 'industrial', true),
+('Explain factor of safety and why multiple FoS values are used.', 'FoS handles uncertainty; criticality, loading variability and failure consequence drive different FoS choices.', 'conceptual', 'Design & Mechanisms', 'medium', 'L&T', 'industrial', true),
+('Why does cavitation damage pump impellers?', 'Bubble collapse near surfaces creates micro-jets and pressure spikes that erode metal over repeated cycles.', 'conceptual', 'Fluid Mechanics', 'medium', 'Schlumberger', 'oil_gas', true),
+('Explain stress-strain curves for steel, aluminium and ceramic.', 'Steel often shows clear yield and ductility, aluminium has smooth yielding, ceramics are mostly elastic then brittle fracture.', 'conceptual', 'Materials Science', 'hard', 'Bosch', 'industrial', true),
+('Why are disc brakes preferred over drum for performance?', 'Better cooling and lower fade under repeated high-energy braking makes discs superior in performance use.', 'conceptual', 'Automobile Systems', 'medium', 'Tata Motors', 'automobile', true),
+('Explain regenerative braking simply.', 'During slowing, motor acts as generator and sends recovered energy back to battery.', 'conceptual', 'EVs & Electrification', 'easy', 'Mahindra', 'automobile', true),
+('What is turbo lag and why does it happen?', 'Boost builds after exhaust energy accelerates turbine, causing a delay between throttle and peak boost.', 'conceptual', 'Automobile Systems', 'medium', 'Tata Motors', 'automobile', true),
+('How does a PLC differ from a microcontroller?', 'PLC is rugged and deterministic for plant automation with industrial I/O; microcontroller is flexible but needs additional industrial hardening.', 'conceptual', 'Industrial Automation', 'medium', 'Siemens', 'industrial', true),
+('What is GD&T and why does manufacturing need it?', 'GD&T communicates functional geometry so parts assemble reliably despite manufacturing variation.', 'conceptual', 'GD&T & Engineering Drawing', 'medium', 'Bosch', 'industrial', true),
+('Explain thermal management in EV batteries.', 'Thermal control keeps cells in safe temperature window for life, fast charging and consistent power.', 'conceptual', 'EVs & Electrification', 'medium', 'Tata Motors', 'automobile', true),
+('What is intercooling and why in multistage compressors?', 'Intercooling lowers intermediate temperature and specific volume, reducing total compression work.', 'conceptual', 'Thermodynamics', 'medium', 'GE', 'industrial', true);
 -- Questions table
 CREATE TABLE questions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

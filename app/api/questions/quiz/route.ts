@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const topic = searchParams.get("topic");
   const difficulty = searchParams.get("difficulty");
+  const company = searchParams.get("company");
   const count = parseInt(searchParams.get("count") || "10");
 
   let query = supabase
@@ -18,6 +19,10 @@ export async function GET(request: Request) {
 
   if (difficulty && difficulty !== "all") {
     query = query.eq("difficulty", difficulty);
+  }
+
+  if (company && company !== "all") {
+    query = query.eq("company", company);
   }
 
   const { data, error } = await query;

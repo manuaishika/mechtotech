@@ -4,16 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { BookOpen, Brain, ListChecks } from "lucide-react";
+import { COMPANY_LOGO_STRIP } from "@/lib/companies";
+import { TOPICS } from "@/lib/supabase";
 
-const topics = [
-  "Thermodynamics",
-  "Fluid Mechanics",
-  "Materials Science",
-  "Manufacturing",
-  "Automobile Systems",
-  "EVs",
-  "Design & Mechanisms",
-];
+const topics = [...TOPICS];
 
 export default function Home() {
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
@@ -78,6 +72,27 @@ export default function Home() {
               <BookOpen className="h-5 w-5" />
               Review Concepts
             </Link>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="mb-12"
+        >
+          <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Target companies
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {COMPANY_LOGO_STRIP.map((company) => (
+              <span
+                key={company}
+                className="rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+              >
+                {company}
+              </span>
+            ))}
           </div>
         </motion.div>
 

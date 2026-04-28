@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   const difficulty = searchParams.get("difficulty");
   const type = searchParams.get("type");
   const company = searchParams.get("company");
+  const sector = searchParams.get("sector");
 
   let query = supabase
     .from("questions")
@@ -28,6 +29,10 @@ export async function GET(request: Request) {
 
   if (company) {
     query = query.eq("company", company);
+  }
+
+  if (sector) {
+    query = query.eq("industry_sector", sector);
   }
 
   const { data, error } = await query;
