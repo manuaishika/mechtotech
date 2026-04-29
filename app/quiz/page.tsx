@@ -246,6 +246,7 @@ export default function QuizPage() {
   const resultQuestions = reviewMissedOnly
     ? questions.filter((q) => missedQuestionIds.has(q.id))
     : [];
+  const answerByQuestionId = new Map(answers.map((answer) => [answer.questionId, answer]));
 
   if (quizState === "setup") {
     return (
@@ -618,12 +619,40 @@ export default function QuizPage() {
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">No missed questions in this quiz.</p>
                 ) : (
                   <div className="space-y-3">
-                    {resultQuestions.map((q) => (
-                      <div key={q.id} className="rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{q.question}</p>
-                        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{q.answer}</p>
-                      </div>
-                    ))}
+                    {resultQuestions.map((q) => {
+                      const answerMeta = answerByQuestionId.get(q.id);
+                      const userSelection =
+                        q.question_type === "mcq" && answerMeta?.userAnswer !== undefined
+                          ? q.options?.[answerMeta.userAnswer]
+                          : undefined;
+                      const correctSelection =
+                        q.question_type === "mcq" && q.correct_option !== undefined
+                          ? q.options?.[q.correct_option]
+                          : undefined;
+
+                      return (
+                        <div key={q.id} className="rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{q.question}</p>
+
+                          {q.question_type === "mcq" ? (
+                            <div className="mt-2 space-y-1 text-xs">
+                              <p className="text-red-600 dark:text-red-400">
+                                Your answer: {userSelection ?? "Not answered"}
+                              </p>
+                              <p className="text-green-600 dark:text-green-400">
+                                Correct answer: {correctSelection ?? "N/A"}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                              Self rating: {answerMeta?.selfRating ?? "Not rated"}
+                            </p>
+                          )}
+
+                          <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{q.answer}</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
